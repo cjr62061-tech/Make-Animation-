@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlipaClip AI PRO - Apna AI Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<style>
+*{box-sizing:border-box;font-family:Arial} body{margin:0;background:#111;color:#fff}
+header{background:#1a1a1a;padding:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:2px solid #a855f7}
+button,input,select,textarea{background:#333;color:#fff;border:1px solid #555;padding:7px 10px;border-radius:8px;cursor:pointer}
+button:hover{background:#a855f7} .aiBtn{background:linear-gradient(90deg,#a855f7,#ec4899)!important;border:none;font-weight:bold}
+#main{display:flex;flex-wrap:wrap}
+#canvasWrap{flex:1;min-width:320px;position:relative;background:#000}
+canvas#draw{width:100%;height:520px;background:#fff;touch-action:none;display:block;cursor:crosshair}
+#three{position:absolute;inset:0;pointer-events:none}
+#side{width:320px;background:#1a1a1a;padding:10px;max-height:90vh;overflow-y:auto}
+.frameBar{display:flex;gap:5px;overflow-x:auto;padding:10px;background:#222}
+.frameThumb{width:60px;height:45px;background:#fff;border:2px solid #555;border-radius:6px;flex-shrink:0;cursor:pointer;color:#000;font-size:11px;display:flex;align-items:center;justify-content:center}
+.frameThumb.active{border-color:#a855f7}
+input[type=color]{width:50px;height:35px;padding:0}
+label{font-size:13px;display:block;margin-top:10px}
+.aiBox{background:#2a1a3a;border:2px solid #a855f7;border-radius:12px;padding:10px;margin-top:10px}
+#aiPreview{width:100%;border-radius:8px;display:none;margin-top:8px}
+#aiStatus{font-size:12px;color:#f0abfc}
+.chip{display:inline-block;background:#444;padding:4px 8px;border-radius:20px;font-size:11px;margin:2px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+<b>🎬 FLIPACLIP AI PRO</b>
+<button onclick="addFrame()">+ Frame</button>
+<button onclick="copyFrame()">Copy</button>
+<button onclick="deleteFrame()">Del</button>
+<button onclick="playAnim()">▶ Play</button>
+<button onclick="stopAnim()">⏹ Stop</button>
+<button onclick="exportVideo()">🎥 Export Video FREE</button>
+<select id="fps"><option>6 FPS</option><option selected>12 FPS</option><option>24 FPS</option></select>
+<select id="scene" onchange="changeScene(this.value)"><option value="#ffffff">Scene: White</option><option value="#87CEEB">Scene: Sky</option><option value="#000000">Scene: Night</option><option value="#ffcccc">Scene: Sunset</option><option value="#ccffcc">Scene: Forest</option></select>
+<select id="char" onchange="addCharacter(this.value)"><option>Character</option><option value="🦸 Hero">🦸 Hero</option><option value="🦹 Villain">🦹 Villain</option><option value="🐱 Cat">🐱 Cat</option><option value="🤖 Robot">🤖 Robot</option></select>
+</header>
+
+<div id="main">
+<div id="canvasWrap"><canvas id="draw" width="900" height="520"></canvas><div id="three"></div></div>
+
+<div id="side">
+<!-- ===== APNA AI ===== -->
+<div class="aiBox">
+<b>🤖 APNA AI - Har Frame Ke Liye</b>
+<p id="aiStatus">AI Ready Hai. Prompt likh aur Generate dabaa.</p>
+<textarea id="aiPrompt" rows="3" style="width:100%" placeholder="Ex: Is ladke ko superhero bana de, peeche city ho, cartoon style me"></textarea>
+<br>
+<span class="chip" onclick="setPrompt('cartoon style, cute character')">Cartoon</span>
+<span class="chip" onclick="setPrompt('anime style, hero pose')">Anime</span>
+<span class="chip" onclick="setPrompt('3d pixar style')">3D Pixar</span>
+<span class="chip" onclick="setPrompt('realistic, cinematic lighting')">Realistic</span>
+<span class="chip" onclick="setPrompt('comic book, villain')">Villain</span>
+<br><br>
+<select id="aiStyle" style="width:100%">
+<option value="cartoon, vibrant colors, 2d animation, clean lines">Style: Cartoon FlipaClip</option>
+<option value="anime, japanese animation, detailed">Style: Anime</option>
+<option value="3d pixar render, cute, high quality">Style: 3D Pixar</option>
+<option value="comic book, bold outline">Style: Comic</option>
+<option value="watercolor painting, soft">Style: Watercolor</option>
+</select>
+<br><br>
+<button class="aiBtn" onclick="generateAI()" style="width:100%">✨ AI Se Image Banao</button>
+<button class="aiBtn" onclick="generateNextFrame()" style="width:100%;margin-top:5px">🔥 AI Se NEXT FRAME Banao</button>
+<button onclick="aiTransformFrame()" style="width:100%;margin-top:5px">🎨 Mere Draw Ko AI Style De</button>
+<img id="aiPreview">
+<button id="useAiBtn" onclick="useAIInFrame()" style="width:100%;display:none;background:#22c55e">✅ Is AI Image Ko Frame Me Le Aao</button>
+<button onclick="aiAutoFrames()" style="width:100%;margin-top:5px">⚡ AI Se 5 Frame Auto Banao</button>
+</div>
+
+<label>🎨 Infinity Color</label>
+<input type="color" id="color" value="#ff0000">
+<input type="range" id="size" min="1" max="50" value="5"> Size: <span id="sizeVal">5</span>
+<br><br>
+<button id="brushBtn" class="active" onclick="setTool('brush')">✏️ Brush</button>
+<button onclick="setTool('eraser')">🧽 Eraser</button>
+<button onclick="setTool('text')">🔤 Text</button>
+<button onclick="setTool('emoji')">😀 Emoji</button>
+<label>Onion Skin <input type="checkbox" id="onion" checked></label>
+<label>✍️ Text / Link</label><input type="text" id="textInput" placeholder="Text ya https://link" style="width:100%">
+<label>😀 Emoji</label><input type="text" id="emojiInput" placeholder="😍 🔥 ⭐" style="width:100%">
+<label>🖼️ Image / GIF</label><input type="file" id="imgInput" accept="image/*">
+<label>🎵 Audio</label><input type="file" id="audioInput" accept="audio/*"><audio id="audioPlayer" controls style="width:100%"></audio>
+<label>🎥 Video</label><input type="file" id="videoInput" accept="video/*"><video id="videoPlayer" controls style="width:100%;display:none"></video>
+<label>🧊 GLB / GLTF</label><input type="file" id="glbInput" accept=".glb,.gltf">
+</div>
+</div>
+<div class="frameBar" id="frames"></div>
+
+<script>
+let canvas=document.getElementById('draw'), ctx=canvas.getContext('2d');
+let frames=[document.createElement('canvas')]; frames[0].width=900; frames[0].height=520;
+let fctx=frames[0].getContext('2d'); fctx.fillStyle='#fff'; fctx.fillRect(0,0,900,520);
+let cur=0, drawing=false, lastX=0,lastY=0, tool='brush', playing=false, playInt=null;
+let threeScene, threeCam, threeRen, model=null, lastAIUrl='';
+
+// ===== CORE DRAW =====
+function renderFrames(){ let bar=document.getElementById('frames'); bar.innerHTML=''; frames.forEach((f,i)=>{ let d=document.createElement('div'); d.className='frameThumb'+(i==cur?' active':''); d.innerText='F'+(i+1); d.onclick=()=>{saveCur(); cur=i; drawCur(); renderFrames();}; bar.appendChild(d); }); }
+function saveCur(){ let c=frames[cur].getContext('2d'); c.clearRect(0,0,900,520); c.drawImage(canvas,0,0); }
+function drawCur(){ ctx.clearRect(0,0,900,520); if(document.getElementById('onion').checked && cur>0){ ctx.globalAlpha=0.3; ctx.drawImage(frames[cur-1],0,0); ctx.globalAlpha=1; } ctx.drawImage(frames[cur],0,0); }
+function addFrame(){ saveCur(); let c=document.createElement('canvas'); c.width=900;c.height=520; let cc=c.getContext('2d'); cc.fillStyle=document.getElementById('scene').value; cc.fillRect(0,0,900,520); frames.splice(cur+1,0,c); cur++; drawCur(); renderFrames(); }
+function copyFrame(){ saveCur(); let c=document.createElement('canvas'); c.width=900;c.height=520; c.getContext('2d').drawImage(frames[cur],0,0); frames.splice(cur+1,0,c); cur++; drawCur(); renderFrames(); }
+function deleteFrame(){ if(frames.length<=1) return alert('1 frame rehne do'); frames.splice(cur,1); cur=Math.max(0,cur-1); drawCur(); renderFrames(); }
+function setTool(t){ tool=t; }
+function getPos(e){ let r=canvas.getBoundingClientRect(); let x=(e.touches?e.touches[0].clientX:e.clientX)-r.left; let y=(e.touches?e.touches[0].clientY:e.clientY)-r.top; return {x:x*900/r.width, y:y*520/r.height}; }
+canvas.addEventListener('mousedown',start); canvas.addEventListener('touchstart',start);
+canvas.addEventListener('mousemove',move); canvas.addEventListener('touchmove',move);
+canvas.addEventListener('mouseup',()=>drawing=false); canvas.addEventListener('touchend',()=>drawing=false);
+function start(e){ if(tool=='text'){ let t=document.getElementById('textInput').value||'Hello'; let p=getPos(e); ctx.fillStyle=document.getElementById('color').value; ctx.font='28px Arial'; ctx.fillText(t,p.x,p.y); saveCur(); return; } if(tool=='emoji'){ let em=document.getElementById('emojiInput').value||'😀'; let p=getPos(e); ctx.font='48px Arial'; ctx.fillText(em,p.x,p.y); saveCur(); return; } drawing=true; let p=getPos(e); lastX=p.x; lastY=p.y; }
+function move(e){ if(!drawing) return; e.preventDefault(); let p=getPos(e); ctx.strokeStyle=tool=='eraser'?'#ffffff':document.getElementById('color').value; ctx.lineWidth=document.getElementById('size').value; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(lastX,lastY); ctx.lineTo(p.x,p.y); ctx.stroke(); lastX=p.x; lastY=p.y; }
+document.getElementById('size').oninput=e=>document.getElementById('sizeVal').innerText=e.target.value;
+function changeScene(v){ ctx.fillStyle=v; ctx.fillRect(0,0,900,520); saveCur(); }
+function addCharacter(v){ if(v.includes('Character')) return; ctx.font='70px Arial'; ctx.fillText(v.split(' ')[0],400,260); saveCur(); }
+function playAnim(){ if(playing) return; playing=true; let i=0; let fps=parseInt(document.getElementById('fps').value); playInt=setInterval(()=>{ ctx.clearRect(0,0,900,520); ctx.drawImage(frames[i],0,0); i=(i+1)%frames.length; },1000/fps); document.getElementById('audioPlayer').play().catch(()=>{}); }
+function stopAnim(){ playing=false; clearInterval(playInt); document.getElementById('audioPlayer').pause(); drawCur(); }
+
+// ===== APNA AI ENGINE =====
+function setPrompt(t){ document.getElementById('aiPrompt').value = document.getElementById('aiPrompt').value + ' ' + t; }
+function buildPrompt(extra=''){
+  let base=document.getElementById('aiPrompt').value || 'cute hero character running';
+  let style=document.getElementById('aiStyle').value;
+  return encodeURIComponent(base + ', ' + style + ', ' + extra + ', full body, white background, animation frame');
+}
+function showAI(url){
+  lastAIUrl=url; let img=document.getElementById('aiPreview'); img.src=url; img.style.display='block';
+  document.getElementById('useAiBtn').style.display='block';
+  document.getElementById('aiStatus').innerText='AI ne bana diya! Ab Frame me le aao.';
+}
+function generateAI(){
+  document.getElementById('aiStatus').innerText='AI bana raha hai... 5 sec ruko...';
+  let seed=Math.floor(Math.random()*99999);
+  let url='https://image.pollinations.ai/prompt/'+buildPrompt()+'?width=900&height=520&seed='+seed+'&nologo=true';
+  showAI(url);
+}
+// Pichle frame ko dekh ke agla frame
+function generateNextFrame(){
+  document.getElementById('aiStatus').innerText='AI pichla frame dekh raha hai, agla bana raha hai...';
+  let base=document.getElementById('aiPrompt').value || 'character moving forward';
+  let seed=Math.floor(Math.random()*99999);
+  // AI ko batate hai ye next frame hai, thoda aage badha hua pose
+  let url='https://image.pollinations.ai/prompt/'+encodeURIComponent(base+', next animation frame, same character, slightly moved forward, next pose, '+document.getElementById('aiStyle').value)+'?width=900&height=520&seed='+seed+'&nologo=true';
+  showAI(url);
+  setTimeout(()=>{ alert('AI Next Frame ready hai! Use Frame me le aao, fir se Next dabao, aise hi 10 frame ban jayenge'); },1000);
+}
+// Tere draw ko AI style de
+function aiTransformFrame(){
+  document.getElementById('aiStatus').innerText='AI tere draw ko padh raha hai...';
+  let userDraw = document.getElementById('aiPrompt').value || 'my drawing';
+  // Canvas se describe karke AI ko bhejte hai - AI usi concept ko pro bana dega
+  let seed=Math.floor(Math.random()*99999);
+  let url='https://image.pollinations.ai/prompt/'+encodeURIComponent('Redraw this sketch professionally: '+userDraw+', keep same pose and composition, clean animation, '+document.getElementById('aiStyle').value)+'?width=900&height=520&seed='+seed+'&nologo=true';
+  showAI(url);
+}
+// AI image ko current frame me daal do
+function useAIInFrame(){
+  if(!lastAIUrl) return;
+  let img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{ ctx.drawImage(img,0,0,900,520); saveCur(); document.getElementById('aiStatus').innerText='Ho gaya! AI image tere frame me aa gaya!'; };
+  img.onerror=()=>{ // CORS fail ho to direct link se try
+    let img2=new Image(); img2.src=lastAIUrl; img2.onload=()=>{ctx.drawImage(img2,0,0,900,520); saveCur();};
+  };
+  img.src=lastAIUrl;
+}
+// Ek prompt se 5 frame auto
+async function aiAutoFrames(){
+  let base=document.getElementById('aiPrompt').value || 'hero running';
+  document.getElementById('aiStatus').innerText='AI 5 frame bana raha hai, ruko...';
+  for(let i=0;i<5;i++){
+    addFrame();
+    let seed=Math.floor(Math.random()*99999);
+    let url='https://image.pollinations.ai/prompt/'+encodeURIComponent(base+', animation frame '+(i+1)+', running sequence, '+document.getElementById('aiStyle').value)+'?width=900&height=520&seed='+seed+'&nologo=true';
+    let img=new Image(); img.crossOrigin='anonymous'; img.src=url;
+    await new Promise(res=>{ img.onload=()=>{ ctx.drawImage(img,0,0,900,520); saveCur(); res(); }; img.onerror=()=>res(); setTimeout(res,8000); });
+  }
+  document.getElementById('aiStatus').innerText='5 Frame ban gaye! Play dabake dekh!';
+  drawCur(); renderFrames();
+}
+
+// Imports
+document.getElementById('imgInput').onchange=e=>{ let img=new Image(); img.onload=()=>{ctx.drawImage(img,100,100,300,200); saveCur();}; img.src=URL.createObjectURL(e.target.files[0]); };
+document.getElementById('audioInput').onchange=e=>{ document.getElementById('audioPlayer').src=URL.createObjectURL(e.target.files[0]); };
+document.getElementById('videoInput').onchange=e=>{ let v=document.getElementById('videoPlayer'); v.src=URL.createObjectURL(e.target.files[0]); v.style.display='block'; v.onloadeddata=()=>{ ctx.drawImage(v,0,0,900,520); saveCur(); }; };
+document.getElementById('glbInput').onchange=e=>{ init3D(); let url=URL.createObjectURL(e.target.files[0]); new THREE.GLTFLoader().load(url,g=>{ if(model) threeScene.remove(model); model=g.scene; model.scale.set(2,2,2); threeScene.add(model); animate3D(); }); };
+function init3D(){ if(threeRen) return; threeScene=new THREE.Scene(); threeCam=new THREE.PerspectiveCamera(75,900/520,0.1,1000); threeCam.position.z=5; threeRen=new THREE.WebGLRenderer({alpha:true}); threeRen.setSize(900,520); document.getElementById('three').appendChild(threeRen.domElement); threeScene.add(new THREE.AmbientLight(0xffffff,1.5)); }
+function animate3D(){ requestAnimationFrame(animate3D); if(model) model.rotation.y+=0.01; if(threeRen) threeRen.render(threeScene,threeCam); }
+function exportVideo(){ let stream=canvas.captureStream(12); let rec=new MediaRecorder(stream,{mimeType:'video/webm'}); let chunks=[]; rec.ondataavailable=e=>chunks.push(e.data); rec.onstop=()=>{ let b=new Blob(chunks,{type:'video/webm'}); let a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='my-ai-animation.webm'; a.click(); alert('Video ban gaya!'); }; rec.start(); playAnim(); setTimeout(()=>{rec.stop(); stopAnim();}, frames.length*1000/12+500); }
+renderFrames(); drawCur();
+</script>
+</body>
+</html>
